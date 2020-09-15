@@ -1,3 +1,3 @@
 # Networking
 
-A description of this package.
+This package is a framework built on Apples Foundation module "URLSession".  

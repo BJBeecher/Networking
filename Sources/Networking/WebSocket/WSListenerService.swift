@@ -72,7 +72,9 @@ extension WSListenerService {
         // check our url
         guard let url = components.url else { delegate?.socket(didRecieveResult: .failure(.badURL)); return }
         // create or request object
-        let request = URLRequest(url: url)
+        var request = URLRequest(url: url)
+        // add appropriate headers to request
+        server.headers.forEach { request.addValue($0.value, forHTTPHeaderField: $0.field) }
         // set our socket task
         task = session.webSocketTask(with: request)
         // start our task

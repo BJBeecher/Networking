@@ -7,7 +7,26 @@
 
 import Foundation
 
-public struct Server {
+public class Server {
     let host : String
     let port : Int?
+    var headers : [HttpHeader]
+    
+    public init(host: String, port: Int? = nil, headers: [HttpHeader]){
+        self.host = host
+        self.port = port
+        self.headers = headers
+    }
+}
+
+// Server API
+
+extension Server {
+    public func addHeader(_ header: HttpHeader){
+        headers.append(header)
+    }
+    
+    public func removeHeader(for field: String){
+        headers = headers.filter { $0.field != field }
+    }
 }

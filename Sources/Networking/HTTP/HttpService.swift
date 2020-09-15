@@ -7,8 +7,7 @@
 
 import Foundation
 
-public
-enum HTTPError : Error {
+public enum HttpError : Error {
     case responseNotHTTP
     case dataAbsentFromResponse
     case clientError(_ message: String?)
@@ -21,49 +20,27 @@ enum HTTPError : Error {
     case urlError
 }
 
-public
-class HTTPSession {
-    private let scheme : String
-    private let host : String
-    private let port : Int?
+public class HttpService {
+    public let server : Server
     private let session : URLSession
     
-    public init(scheme: String = "HTTP", host: String, port: Int? = nil, session : URLSession = .shared) {
-        self.scheme = scheme
-        self.host = host
-        self.port = port
+    public init(server: Server, session : URLSession = .shared) {
+        self.server = server
         self.session = session
     }
     
-    private (set) var headers = [
-        RequestHeader(value: TimeZone.current.abbreviation() ?? "", field: "timezone"),
-        RequestHeader(value: "application/json", field: "Content-Type")
-    ]
-    
-    private var components : URLComponents {
-        var components = URLComponents()
-        components.scheme = scheme
-        components.host = host
-        components.port = port
-        return components
-    }
+    private var components : URLComponents { URLComponents(scheme: "http", server: server) }
 }
 
 // API
 
-extension HTTPSession {
-    public func addHeader(_ value: String, forField: String ){
-        // create new header
-        let header = RequestHeader(value: value, field: forField)
-        // add header
-        headers.append(header)
-    }
+extension HttpService {
     
-    public func removeHeader(field: String){ headers = headers.filter { $0.field != field } }
-    
-    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, HTTPError>) -> Void) {
+    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, HttpError>) -> Void) {
         // pull in components
         var components = self.components
+        // set path
+        components.path = path
         // add query items
         components.queryItems = queryItems
         // check url
@@ -73,7 +50,7 @@ extension HTTPSession {
         // set method
         request.httpMethod = "Get"
         // set headers
-        headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        server.headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
         // create new datatask
         let task = session.dataTask(with: request) { [weak self] (data, response, error) in
             // check for error
@@ -93,7 +70,11 @@ extension HTTPSession {
         task.resume()
     }
     
-    public func post<Body: Encodable>(path: String, body: Body, completion: @escaping (HTTPError?) -> Void){
+    public func post<Body: Encodable>(path: String, body: Body, completion: @escaping (HttpError?) -> Void){
+        // pull in components
+        var components = self.components
+        // add path
+        components.path = path
         // check url
         guard let url = components.url else { completion(.urlError); return }
         // create request with url
@@ -103,7 +84,7 @@ extension HTTPSession {
         // set body data
         do { let data = try JSONEncoder().encode(body); request.httpBody = data } catch { print(error); completion(.encodingError(error)); return }
         // set headers
-        headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        server.headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
         // create the task
         let task = session.dataTask(with: request) { [weak self] (data, response, error) in
             // check error
@@ -117,7 +98,7 @@ extension HTTPSession {
         task.resume()
     }
     
-    private func responseError(_ response: URLResponse?, data: Data?) -> HTTPError? {
+    private func responseError(_ response: URLResponse?, data: Data?) -> HttpError? {
         // check type or httpurlresponse we should get this ever time since all request are http
         guard let httpResponse = response as? HTTPURLResponse else { return .responseNotHTTP }
         // switch on the code to return necessary error
