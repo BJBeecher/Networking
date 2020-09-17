@@ -117,7 +117,7 @@ extension HttpService {
         task.resume()
     }
     
-    #warning("Need to finish config")
+    #warning("Need to finish configuring web socket api")
     public func webSocket(scheme: String = "ws", path: String, queryItems: [URLQueryItem]? = nil){
         
     }
