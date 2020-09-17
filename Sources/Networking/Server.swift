@@ -10,7 +10,7 @@ import Foundation
 public class Server {
     let host : String
     let port : Int?
-    var headers : [HttpHeader]
+    private (set) var headers : [HttpHeader]
     
     public init(host: String, port: Int? = nil, headers: [HttpHeader]){
         self.host = host

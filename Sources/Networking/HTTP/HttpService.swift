@@ -21,20 +21,39 @@ public enum HttpError : Error {
 }
 
 public class HttpService {
-    public let server : Server
+    
     private let session : URLSession
     
-    public init(server: Server, session : URLSession = .shared) {
-        self.server = server
-        self.session = session
-    }
+    let components : URLComponents
     
-    private var components : URLComponents { URLComponents(scheme: "http", server: server) }
+    private (set) var headers : [HttpHeader]
+    
+    public init(session : URLSession = .shared, scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [HttpHeader]()) {
+        // set our session
+        self.session = session
+        // create components object
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.port = port
+        // set our components
+        self.components = components
+        // set our headers
+        self.headers = headers
+    }
 }
 
 // API
 
 extension HttpService {
+    
+    public func addHeader(_ header: HttpHeader){
+        headers.append(header)
+    }
+    
+    public func removeHeader(for field: String){
+        headers = headers.filter { $0.field != field }
+    }
     
     public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, HttpError>) -> Void) {
         // pull in components
@@ -50,7 +69,7 @@ extension HttpService {
         // set method
         request.httpMethod = "Get"
         // set headers
-        server.headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
         // create new datatask
         let task = session.dataTask(with: request) { [weak self] (data, response, error) in
             // check for error
@@ -84,7 +103,7 @@ extension HttpService {
         // set body data
         do { let data = try JSONEncoder().encode(body); request.httpBody = data } catch { print(error); completion(.encodingError(error)); return }
         // set headers
-        server.headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
         // create the task
         let task = session.dataTask(with: request) { [weak self] (data, response, error) in
             // check error
@@ -96,6 +115,11 @@ extension HttpService {
         }
         // start the task
         task.resume()
+    }
+    
+    #warning("Need to finish config")
+    public func webSocket(scheme: String = "ws", path: String, queryItems: [URLQueryItem]? = nil){
+        
     }
     
     private func responseError(_ response: URLResponse?, data: Data?) -> HttpError? {
