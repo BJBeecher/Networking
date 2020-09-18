@@ -8,12 +8,14 @@
 
 import Foundation
 
-public enum WSListenerError : Error {
+public enum WSError : Error {
     case badURL
+    case badMessage
+    case decodingError(_ error: Error)
     case unknownError(_ error: Error)
 }
 
-class WSListenerService : NSObject {
+public class WebsocketService<T: Decodable> : NSObject, URLSessionWebSocketDelegate {
     // url constructor
     private let components : URLComponents
     // headers
@@ -37,36 +39,32 @@ class WSListenerService : NSObject {
     // property will let us know current connection status
     var isConnected = false
     // completion type for listener
-    typealias Completion = (Result<URLSessionWebSocketTask.Message, WSListenerError>) -> Void
+    public typealias Completion = (Result<T, WSError>) -> Void
     // store completion
     private var completion : Completion?
-}
-
-// delegate methods
-
-extension WSListenerService : URLSessionWebSocketDelegate {
-    internal func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+    
+    public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         listen(); isConnected = true; startPingInterval()
     }
     
-    internal func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+    public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         print("Socket Closed"); isConnected = false
     }
     
-    internal func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
+    public func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?) {
         print("invalid url session:", error?.localizedDescription as Any)
     }
     
-    internal func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         print("url session complete with error:", error?.localizedDescription as Any)
     }
 }
 
 // API
 
-extension WSListenerService {
+extension WebsocketService {
     
-    func startListening(completion: @escaping Completion) {
+    public func startListening(completion: @escaping Completion) {
         // save call back for delegate method access
         self.completion = completion
         // check our url
@@ -81,7 +79,7 @@ extension WSListenerService {
         task?.resume()
     }
     
-    func stopListening(){
+    public func stopListening(){
         task?.cancel(with: .goingAway, reason: nil)
     }
     
@@ -91,13 +89,34 @@ extension WSListenerService {
             switch result {
             // on success send message message to delegate
             case .success(let message):
-                self?.completion?(.success(message))
+                self?.decodeMessage(message: message)
             // on failure retrun failure to delegate
             case .failure(let error):
                 self?.completion?(.failure(.unknownError(error)))
             }
             // task will stop listening if this is not called after recieving a result -- stupid API!!!
             self?.listen()
+        }
+    }
+    
+    private func decodeMessage(message: URLSessionWebSocketTask.Message) {
+        switch message {
+        // on string lets encode and then try to decode
+        case .string(let string):
+            // convert string to data
+            guard let data = string.data(using: .utf8) else { completion?(.failure(.badMessage)); return }
+            // decode the data
+            do {
+                // decode data
+                let value = try JSONDecoder().decode(T.self, from: data)
+                // send value to completion
+                completion?(.success(value))
+            } catch {
+                print(error)
+                completion?(.failure(.decodingError(error)))
+            }
+        default:
+            completion?(.failure(.badMessage))
         }
     }
     

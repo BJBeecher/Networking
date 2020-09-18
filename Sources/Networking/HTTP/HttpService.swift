@@ -104,6 +104,8 @@ extension HttpService {
         do { let data = try JSONEncoder().encode(body); request.httpBody = data } catch { print(error); completion(.encodingError(error)); return }
         // set headers
         headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        // add json header
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         // create the task
         let task = session.dataTask(with: request) { [weak self] (data, response, error) in
             // check error
@@ -117,9 +119,8 @@ extension HttpService {
         task.resume()
     }
     
-    #warning("Need to finish configuring web socket api")
-    public func webSocket(scheme: String = "ws", path: String, queryItems: [URLQueryItem]? = nil){
-        
+    public func createWebsocketService<T: Decodable>(scheme: String = "ws", path: String, queryItems: [URLQueryItem]? = nil) -> WebsocketService<T> {
+        return WebsocketService(scheme: scheme, components: components, headers: headers, path: path, queryItems: queryItems)
     }
     
     private func responseError(_ response: URLResponse?, data: Data?) -> HttpError? {
