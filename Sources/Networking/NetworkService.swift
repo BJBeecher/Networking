@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum HttpError : Error {
+public enum NetworkError : Error {
     case responseNotHTTP
     case dataAbsentFromResponse
     case clientError(_ message: String?)
@@ -20,15 +20,15 @@ public enum HttpError : Error {
     case urlError
 }
 
-public class HttpService {
+public class NetworkService {
     
-    private let session : URLSession
+    private let session : NetworkSession
     
     let components : URLComponents
     
     private (set) var headers : [HttpHeader]
     
-    public init(session : URLSession = .shared, scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [HttpHeader]()) {
+    public init(session: NetworkSession = URLSession.shared, scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [HttpHeader]()) {
         // set our session
         self.session = session
         // create components object
@@ -36,7 +36,7 @@ public class HttpService {
         components.scheme = scheme
         components.host = host
         components.port = port
-        // set our components
+        // set our immutable object
         self.components = components
         // set our headers
         self.headers = headers
@@ -45,7 +45,7 @@ public class HttpService {
 
 // API
 
-extension HttpService {
+extension NetworkService {
     
     public func addHeader(_ header: HttpHeader){
         headers.append(header)
@@ -55,7 +55,7 @@ extension HttpService {
         headers = headers.filter { $0.field != field }
     }
     
-    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, HttpError>) -> Void) {
+    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, NetworkError>) -> Void) {
         // pull in components
         var components = self.components
         // set path
@@ -71,7 +71,7 @@ extension HttpService {
         // set headers
         headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
         // create new datatask
-        let task = session.dataTask(with: request) { [weak self] (data, response, error) in
+        session.loadData(with: request) { [weak self] (data, response, error) in
             // check for error
             if let error = error { completion(.failure(.unknownError(error))); return }
             // check response for error
@@ -85,11 +85,9 @@ extension HttpService {
                 print(error); completion(.failure(.decodingError(error)))
             }
         }
-        // start the task
-        task.resume()
     }
     
-    public func post<Body: Encodable>(path: String, body: Body, completion: @escaping (HttpError?) -> Void){
+    public func post<Body: Encodable>(path: String, body: Body, completion: @escaping (NetworkError?) -> Void){
         // pull in components
         var components = self.components
         // add path
@@ -107,7 +105,7 @@ extension HttpService {
         // add json header
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         // create the task
-        let task = session.dataTask(with: request) { [weak self] (data, response, error) in
+        session.loadData(with: request) { [weak self] (data, response, error) in
             // check error
             if let error = error { completion(.unknownError(error)); return }
             // check response for error
@@ -115,15 +113,13 @@ extension HttpService {
             // all good return nil
             completion(nil)
         }
-        // start the task
-        task.resume()
     }
     
     public func createWebsocketService<T: Decodable>(scheme: String = "ws", path: String, queryItems: [URLQueryItem]? = nil) -> WebsocketService<T> {
         return WebsocketService(scheme: scheme, components: components, headers: headers, path: path, queryItems: queryItems)
     }
     
-    private func responseError(_ response: URLResponse?, data: Data?) -> HttpError? {
+    func responseError(_ response: URLResponse?, data: Data?) -> NetworkError? {
         // check type or httpurlresponse we should get this ever time since all request are http
         guard let httpResponse = response as? HTTPURLResponse else { return .responseNotHTTP }
         // switch on the code to return necessary error
@@ -149,7 +145,7 @@ extension HttpService {
         }
     }
     
-    private func decodeData<Value: Decodable>(data: Data?) -> Value? {
+    func decodeData<Value: Decodable>(data: Data?) -> Value? {
         // check for data
         guard let data = data else { return nil }
         // try to decode the data
