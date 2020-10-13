@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum NetworkError : Error {
+public enum HTTPError : Error {
     case responseNotHTTP
     case dataAbsentFromResponse
     case clientError(_ message: String?)
@@ -21,32 +21,47 @@ public enum NetworkError : Error {
 }
 
 public class NetworkService {
-    
-    private let session : NetworkSession
-    
-    let components : URLComponents
-    
+    // url scheme
+    private let scheme : String
+    // url host
+    private let host : String
+    // url port
+    private let port : Int?
+    // request headers
     private (set) var headers : [HttpHeader]
-    
-    public init(session: NetworkSession = URLSession.shared, scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [HttpHeader]()) {
-        // set our session
-        self.session = session
-        // create components object
+    // session dependency
+    private let urlSession : URLSession
+    // init
+    public init(scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [], urlSession : URLSession = URLSession.shared) {
+        self.scheme = scheme
+        self.host = host
+        self.port = port
+        self.headers = headers
+        self.urlSession = urlSession
+    }
+    // web socket access
+    private lazy var websocketService : WebSocketService = {
+        WebSocketService(host: host, port: port, headers: headers)
+    }()
+}
+
+// computed properties
+
+extension NetworkService {
+    var urlComponents : URLComponents {
+        // create object
         var components = URLComponents()
         components.scheme = scheme
         components.host = host
         components.port = port
-        // set our immutable object
-        self.components = components
-        // set our headers
-        self.headers = headers
+        // return components
+        return components
     }
 }
 
 // API
 
 extension NetworkService {
-    
     public func addHeader(_ header: HttpHeader){
         headers.append(header)
     }
@@ -54,10 +69,14 @@ extension NetworkService {
     public func removeHeader(for field: String){
         headers = headers.filter { $0.field != field }
     }
-    
-    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, NetworkError>) -> Void) {
+}
+
+// networking methods
+
+extension NetworkService {
+    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (Result<Value, HTTPError>) -> Void) {
         // pull in components
-        var components = self.components
+        var components = self.urlComponents
         // set path
         components.path = path
         // add query items
@@ -71,7 +90,7 @@ extension NetworkService {
         // set headers
         headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
         // create new datatask
-        session.loadData(with: request) { [weak self] (data, response, error) in
+        urlSession.dataTask(with: request) { [weak self] (data, response, error) in
             // check for error
             if let error = error { completion(.failure(.unknownError(error))); return }
             // check response for error
@@ -84,12 +103,12 @@ extension NetworkService {
             } catch {
                 print(error); completion(.failure(.decodingError(error)))
             }
-        }
+        }.resume()
     }
     
-    public func post<Body: Encodable>(path: String, body: Body, completion: @escaping (NetworkError?) -> Void){
+    public func post<Body: Encodable>(path: String, body: Body, completion: @escaping (HTTPError?) -> Void){
         // pull in components
-        var components = self.components
+        var components = self.urlComponents
         // add path
         components.path = path
         // check url
@@ -105,21 +124,79 @@ extension NetworkService {
         // add json header
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         // create the task
-        session.loadData(with: request) { [weak self] (data, response, error) in
+        urlSession.dataTask(with: request) { [weak self] (data, response, error) in
             // check error
             if let error = error { completion(.unknownError(error)); return }
             // check response for error
             if let responseError = self?.responseError(response, data: data) { completion(responseError); return }
             // all good return nil
             completion(nil)
-        }
+        }.resume()
     }
     
-    public func createWebsocketService<T: Decodable>(scheme: String = "ws", path: String, queryItems: [URLQueryItem]? = nil) -> WebsocketService<T> {
-        return WebsocketService(scheme: scheme, components: components, headers: headers, path: path, queryItems: queryItems)
+    public func update<Body: Encodable>(path: String, body: Body, completion: @escaping (HTTPError?) -> Void){
+        // pull in components
+        var components = self.urlComponents
+        // add path
+        components.path = path
+        // check url
+        guard let url = components.url else { completion(.urlError); return }
+        // create request with url
+        var request = URLRequest(url: url)
+        // set method
+        request.httpMethod = "Update"
+        // set body data
+        do { let data = try JSONEncoder().encode(body); request.httpBody = data } catch { print(error); completion(.encodingError(error)); return }
+        // set headers
+        headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        // add json header
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        // create the task
+        urlSession.dataTask(with: request) { [weak self] (data, response, error) in
+            // check error
+            if let error = error { completion(.unknownError(error)); return }
+            // check response for error
+            if let responseError = self?.responseError(response, data: data) { completion(responseError); return }
+            // all good return nil
+            completion(nil)
+        }.resume()
     }
     
-    func responseError(_ response: URLResponse?, data: Data?) -> NetworkError? {
+    public func delete(path: String, queryItems: [URLQueryItem]? = nil, completion: @escaping (HTTPError?) -> Void){
+        // pull in components
+        var components = self.urlComponents
+        // add path
+        components.path = path
+        // add query items
+        components.queryItems = queryItems
+        // check url
+        guard let url = components.url else { completion(.urlError); return }
+        // create request with url
+        var request = URLRequest(url: url)
+        // set method
+        request.httpMethod = "Delete"
+        // set headers
+        headers.forEach { header in request.addValue(header.value, forHTTPHeaderField: header.field) }
+        // create the task
+        urlSession.dataTask(with: request) { [weak self] (data, response, error) in
+            // check error
+            if let error = error { completion(.unknownError(error)); return }
+            // check response for error
+            if let responseError = self?.responseError(response, data: data) { completion(responseError); return }
+            // all good return nil
+            completion(nil)
+        }.resume()
+    }
+    
+    public func listen<T: AnyObject, D: Decodable>(_ observer: T, channel: UUID, completion: @escaping (T, D) -> Void){
+        websocketService.createListener(observer, channel: channel, completion: completion)
+    }
+}
+
+// helper API
+
+extension NetworkService {
+    func responseError(_ response: URLResponse?, data: Data?) -> HTTPError? {
         // check type or httpurlresponse we should get this ever time since all request are http
         guard let httpResponse = response as? HTTPURLResponse else { return .responseNotHTTP }
         // switch on the code to return necessary error
