@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct WSListener : Identifiable, Hashable {
+struct WSListener : Identifiable, Hashable, Encodable {
     let id : UUID
     let channelId : UUID
 }

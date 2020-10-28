@@ -134,7 +134,7 @@ extension NetworkService {
         }.resume()
     }
     
-    public func update<Body: Encodable>(path: String, body: Body, completion: @escaping (HTTPError?) -> Void){
+    public func put<Body: Encodable>(path: String, body: Body, completion: @escaping (HTTPError?) -> Void){
         // pull in components
         var components = self.urlComponents
         // add path
@@ -144,7 +144,7 @@ extension NetworkService {
         // create request with url
         var request = URLRequest(url: url)
         // set method
-        request.httpMethod = "Update"
+        request.httpMethod = "Put"
         // set body data
         do { let data = try JSONEncoder().encode(body); request.httpBody = data } catch { print(error); completion(.encodingError(error)); return }
         // set headers
