@@ -32,7 +32,7 @@ public class NetworkService {
     // session dependency
     private let urlSession : URLSession
     // init
-    public init(scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [], urlSession : URLSession = URLSession.shared) {
+    public init(scheme: String = "http", host: String, port: Int? = nil, headers: [HttpHeader] = [], urlSession : URLSession = .lightWeight) {
         self.scheme = scheme
         self.host = host
         self.port = port
