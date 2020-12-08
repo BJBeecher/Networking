@@ -99,7 +99,10 @@ extension NetworkService {
             guard let data = data else { completion(.failure(.dataAbsentFromResponse)); return }
             // decode the data to object
             do {
-                let value = try JSONDecoder().decode(Value.self, from: data); completion(.success(value))
+                // decode data
+                let value = try JSONDecoder().decode(Value.self, from: data)
+                // send to completion
+                completion(.success(value))
             } catch {
                 print(error); completion(.failure(.decodingError(error)))
             }
