@@ -8,5 +8,6 @@
 import Foundation
 
 public protocol NetworkSession {
+    // data loader api
     func loadData(with request: URLRequest, completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void)
 }
