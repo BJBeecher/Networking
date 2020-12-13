@@ -30,7 +30,7 @@ public class HTTPService {
     public init(
         encoder: JSONEncoder = .init(),
         decoder: JSONDecoder = .init(),
-        session : URLSession
+        session : URLSession = .shared
     ) {
         self.session = session
         self.encoder = encoder
