@@ -181,15 +181,12 @@ extension WebSocketService {
         connect { [ weak self] in
             // start listening for messages from server
             self?.task?.receive { [weak self] result in
-                print(result)
-                // check for self
-                guard let self = self else { return }
                 // examine result
-                if case .success(let message) = result, let response = self.decodeMessage(message) {
-                    self.broadcastResponse(response)
+                if case .success(let message) = result, let response = self?.decodeMessage(message) {
+                    self?.broadcastResponse(response)
                 }
                 // task will stop listening if this is not called after recieving a result -- stupid API!!!
-                self.listen()
+                self?.listen()
             }
         }
     }
@@ -209,6 +206,7 @@ extension WebSocketService {
         print(#function)
         for (listener, completion) in listeners {
             if listener.channelId == response.channelId {
+                print(listener.channelId)
                 completion(response.payload.data(using: .utf8))
             }
         }
