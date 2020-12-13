@@ -108,7 +108,6 @@ class WebSocketService : NSObject, URLSessionWebSocketDelegate {
 extension WebSocketService {
     @discardableResult
     public func createListener<T: AnyObject, D: Decodable>(_ observer: T, channel: UUID, completion: @escaping (T, D) -> Void) -> () -> Void {
-        print(#function)
         // create new listener object -- when the completion is called by service it will check if observer is allocated and remove if it isn't
         let listener = WSListener(id: UUID(), channelId: channel)
         // send listen request to server to let us subscribe to channel
@@ -131,17 +130,14 @@ extension WebSocketService {
         // return cancellation
         return { [weak self] in
             self?.unsubscribeListener(listener)
-            print("listener removed for: \(listener)")
         }
     }
     
     private func subscribeListener(_ listener: WSListener, completion: @escaping (Error?) -> Void){
-        print(#function)
         sendRequest(event: "listen", payload: listener, completion: completion)
     }
     
     private func unsubscribeListener(_ listener: WSListener){
-        print(#function)
         sendRequest(event: "ignore", payload: listener) { error in
             guard error == nil else { return }
             self.listeners.removeValue(forKey: listener)
@@ -149,7 +145,6 @@ extension WebSocketService {
     }
     
     private func sendRequest<T: Encodable>(event: String, payload: T, completion: @escaping (Error?) -> Void){
-        print(#function)
         connect { [weak self] in
             // check self allocation
             guard let self = self else { return }
@@ -177,7 +172,6 @@ extension WebSocketService {
     }
     
     private func listen(){
-        print(#function)
         connect { [ weak self] in
             // start listening for messages from server
             self?.task?.receive { [weak self] result in
@@ -192,7 +186,6 @@ extension WebSocketService {
     }
     
     private func decodeMessage(_ message: URLSessionWebSocketTask.Message) -> WSResponse? {
-        print(#function)
         if case .string(let string) = message, let data = string.data(using: .utf8), let item = try? decoder.decode(WSResponse.self, from: data) {
             return item
         } else if case .data(let data) = message, let item = try? decoder.decode(WSResponse.self, from: data) {
@@ -203,17 +196,14 @@ extension WebSocketService {
     }
     
     private func broadcastResponse(_ response: WSResponse){
-        print(#function)
         for (listener, completion) in listeners {
             if listener.channelId == response.channelId {
-                print(listener.channelId)
                 completion(response.payload.data(using: .utf8))
             }
         }
     }
     
     private func connect(completion: (() -> Void)? = nil) {
-        print(#function)
         // check that socket is not already connected
         guard case .disconnected(_) = connectionStatus else { completion?(); return }
         // set status
@@ -231,14 +221,12 @@ extension WebSocketService {
     }
     
     private func reconnect(){
-        print(#function)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             self.connect()
         }
     }
     
     private func startPingInterval(){
-        print(#function)
         // check for connection
         guard case .connected = connectionStatus else { return }
         // start pinging server to maintain connection
