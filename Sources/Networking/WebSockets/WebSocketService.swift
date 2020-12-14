@@ -24,7 +24,7 @@ public class WebSocketService {
     // decoder dependency
     private let decoder : JSONDecoder
     // initializer
-    init(
+    public init(
         task: URLSessionWebSocketTask,
         encoder: JSONEncoder = .init(),
         decoder: JSONDecoder = .init()
