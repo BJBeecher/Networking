@@ -168,7 +168,7 @@ extension WebSocketService {
 // shared instance
 
 extension WebSocketService {
-    static func standard(request: URLRequest) -> WebSocketService {
+    public static func standard(request: URLRequest) -> WebSocketService {
         // create coordinator
         let coordinator = WebSocketCoordinator()
         // create new url session
