@@ -44,7 +44,7 @@ public class WebSocketService {
 extension WebSocketService {
     public func addObserver(_ observer: WebSocketObserver, completion: @escaping (Error?) -> Void) {
         // create request
-        let request = Request(event: "listen", payload: observer.channelId.uuidString)
+        let request = Request(event: "listen", payload: observer.channelId)
         // send listen request to server to let us subscribe to channel
         sendRequest(request) { [weak self] error in
             if let error = error {
@@ -62,7 +62,7 @@ extension WebSocketService {
     
     public func removeObserver(_ observer: WebSocketObserver, completion: @escaping (Error?) -> Void){
         // create request
-        let request = Request(event: "ignore", payload: observer.channelId.uuidString)
+        let request = Request(event: "ignore", payload: observer.channelId)
         // send ignore request to server
         sendRequest(request) { [weak self] error in
             if let error = error {
@@ -85,7 +85,7 @@ extension WebSocketService {
         observations.forEach { id, observation in
             if let observer = observation.observer {
                 // create new request
-                let request = Request(event: "listen", payload: observer.channelId.uuidString)
+                let request = Request(event: "listen", payload: observer.channelId)
                 // send the request
                 sendRequest(request) { _ in }
             } else {
@@ -96,7 +96,7 @@ extension WebSocketService {
         listen()
     }
     
-    func sendRequest(_ request: Request, completion: @escaping (Error?) -> Void){
+    func sendRequest<T:Encodable>(_ request: Request<T>, completion: @escaping (Error?) -> Void){
         do {
             // encode request
             let data = try encoder.encode(request)
@@ -154,9 +154,9 @@ extension WebSocketService {
         weak var observer : WebSocketObserver?
     }
     
-    struct Request : Encodable {
+    struct Request<T:Encodable> : Encodable {
         let event : String
-        let payload : String
+        let payload : T
     }
     
     struct Response : Decodable {
