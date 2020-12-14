@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension URLSessionWebSocketTask {
+extension URLSessionWebSocketTask : WebSocketTask {
     func reconnect(){
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: resume)
     }

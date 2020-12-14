@@ -18,14 +18,14 @@ public enum WSError : Error {
 
 public class WebSocketService {
     // task
-    private let task : URLSessionWebSocketTask
+    private let task : WebSocketTask
     // encoder dependency
     private let encoder : JSONEncoder
     // decoder dependency
     private let decoder : JSONDecoder
     // initializer
     public init(
-        task: URLSessionWebSocketTask,
+        task: WebSocketTask,
         encoder: JSONEncoder = .init(),
         decoder: JSONDecoder = .init()
     ){
@@ -119,7 +119,7 @@ extension WebSocketService {
             if case .success(let message) = result, let response = self?.decodeMessage(message) {
                 self?.broadcastResponse(response)
             }
-            // task will stop listening if this is not called after recieving a result -- stupid API!!!
+            // task will stop listening if this is not called after recieving a result
             self?.listen()
         }
     }
@@ -130,15 +130,15 @@ extension WebSocketService {
         } else if case .data(let data) = message, let item = try? decoder.decode(Response.self, from: data) {
             return item
         } else {
-            return nil
+            print("Bad message"); return nil
         }
     }
     
     func broadcastResponse(_ response: Response){
         for (id, observation) in observations {
             if let observer = observation.observer {
-                if response.channelId == observer.channelId {
-                    observer.webSocket(self, didRecieveData: response.payload)
+                if response.channelId == observer.channelId, let data = response.payload.data(using: .utf8) {
+                    observer.webSocket(self, didRecieveData: data)
                 }
             } else {
                 observations.removeValue(forKey: id)
@@ -159,9 +159,9 @@ extension WebSocketService {
         let payload : T
     }
     
-    struct Response : Decodable {
+    struct Response : Codable {
         let channelId : UUID
-        let payload : Data
+        let payload : String
     }
 }
 
