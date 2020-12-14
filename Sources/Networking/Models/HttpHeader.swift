@@ -8,8 +8,8 @@
 import Foundation
 
 public struct HTTPHeader {
-    let value : String
-    let field : String
+    public let value : String
+    public let field : String
     
     public init(value: String, field: String){
         self.value = value
