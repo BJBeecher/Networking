@@ -42,7 +42,7 @@ public class HTTPService {
 // public networking methods
 
 extension HTTPService {
-    public func get<Value: Decodable>(url: URL?, headers: [HTTPHeader] = [], completion: @escaping (Result<Value, HTTPError>) -> Void) {
+    public func get<Value: Decodable>(url: URL?, headers: [HTTPHeader], completion: @escaping (Result<Value, HTTPError>) -> Void) {
         // check url
         guard let url = url else { return completion(.failure(.badURL)) }
         // create request with url dependency
@@ -71,7 +71,7 @@ extension HTTPService {
         }.resume()
     }
     
-    public func post<Body: Encodable>(url: URL?, headers: [HTTPHeader] = [], body: Body, completion: @escaping (HTTPError?) -> Void){
+    public func post<Body: Encodable>(url: URL?, headers: [HTTPHeader], body: Body, completion: @escaping (HTTPError?) -> Void){
         // check url
         guard let url = url else { return completion(.badURL) }
         // create request with url
@@ -99,7 +99,7 @@ extension HTTPService {
         }.resume()
     }
     
-    public func put<Body: Encodable>(url: URL?, headers: [HTTPHeader] = [], body: Body, completion: @escaping (HTTPError?) -> Void){
+    public func put<Body: Encodable>(url: URL?, headers: [HTTPHeader], body: Body, completion: @escaping (HTTPError?) -> Void){
         // check url
         guard let url = url else { return completion(.badURL) }
         // create request with url
@@ -127,7 +127,7 @@ extension HTTPService {
         }.resume()
     }
     
-    public func delete(url: URL?, headers: [HTTPHeader] = [], completion: @escaping (HTTPError?) -> Void){
+    public func delete(url: URL?, headers: [HTTPHeader], completion: @escaping (HTTPError?) -> Void){
         // check url
         guard let url = url else { return completion(.badURL) }
         // create request with url
