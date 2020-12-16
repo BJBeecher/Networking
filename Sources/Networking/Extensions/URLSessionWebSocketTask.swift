@@ -8,24 +8,15 @@
 import Foundation
 
 extension URLSessionWebSocketTask : WebSocketTask {
-    func reconnect(){
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: resume)
-    }
-    
-    func keepAlive(){
-        // start pinging server to maintain connection
-        sendPing { [weak self] (error) in
-            // on error stop the task and try to reconnect
-            if error != nil {
-                // stop task
-                self?.cancel(with: .abnormalClosure, reason: nil)
-                // try to reconnect
-                self?.reconnect()
-                
-            } else if let self = self {
-                // restart ping interval
-                DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: self.keepAlive)
+    func startListener(didRecieveMessage: @escaping (Message) -> Void){
+        // start listening for messages from server
+        receive { [weak self] result in
+            // examine result
+            if case .success(let message) = result {
+                didRecieveMessage(message)
             }
+            // task will stop listening if this is not called after recieving a result
+            self?.startListener(didRecieveMessage: didRecieveMessage)
         }
     }
 }

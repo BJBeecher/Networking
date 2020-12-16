@@ -8,40 +8,38 @@
 
 import Foundation
 
-public enum WSError : Error {
-    case badURL
-    case badMessage
-    case decodingError(_ error: Error)
-    case unknownError(_ error: Error)
-    case encodingError(_ error: Error? = nil)
-}
-
-public class WebSocketService {
+public class WebSocket : NSObject {
     // task
-    private let task : WebSocketTask
+    private let request : URLRequest
     // encoder dependency
     private let encoder : JSONEncoder
     // decoder dependency
     private let decoder : JSONDecoder
     // initializer
     public init(
-        task: WebSocketTask,
+        request: URLRequest,
         encoder: JSONEncoder = .init(),
         decoder: JSONDecoder = .init()
     ){
-        self.task = task
+        self.request = request
         self.encoder = encoder
         self.decoder = decoder
-        // start the good ole guy
+        super.init()
         self.task.resume()
     }
+    // session variable
+    lazy var session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+    // task variable
+    lazy var task = session.webSocketTask(with: request)
     // store completion
     var observations = [ObjectIdentifier : Observation]()
+    // connection status
+    var isConnected = false
 }
 
 // public API
 
-extension WebSocketService {
+extension WebSocket {
     public func addObserver(_ observer: WebSocketObserver, completion: @escaping (Error?) -> Void) {
         // create request
         let request = Request(event: "listen", payload: observer.channelId)
@@ -79,21 +77,16 @@ extension WebSocketService {
 
 // internal API
     
-extension WebSocketService {
-    func onConnect(){
-        // send all existing observers to server
-        observations.forEach { id, observation in
-            if let observer = observation.observer {
-                // create new request
-                let request = Request(event: "listen", payload: observer.channelId)
-                // send the request
-                sendRequest(request) { _ in }
-            } else {
-                observations.removeValue(forKey: id)
-            }
+extension WebSocket {
+    func reconnect(){
+        if !isConnected {
+            // create new task
+            task = session.webSocketTask(with: request)
+            // resume task
+            task.resume()
+            // retry in 3 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: reconnect)
         }
-        // start the listener
-        listen()
     }
     
     func sendRequest<T:Encodable>(_ request: Request<T>, completion: @escaping (Error?) -> Void){
@@ -112,25 +105,21 @@ extension WebSocketService {
         }
     }
     
-    func listen(){
-        // start listening for messages from server
-        task.receive { [weak self] result in
-            // examine result
-            if case .success(let message) = result, let response = self?.decodeMessage(message) {
-                self?.broadcastResponse(response)
-            }
-            // task will stop listening if this is not called after recieving a result
-            self?.listen()
+    func didRecieveMessage(_ message: URLSessionWebSocketTask.Message){
+        if let response = decodeMessageIntoResponse(message) {
+            broadcastResponse(response)
+        } else {
+            print("Bad message from server")
         }
     }
     
-    func decodeMessage(_ message: URLSessionWebSocketTask.Message) -> Response? {
+    func decodeMessageIntoResponse(_ message: URLSessionWebSocketTask.Message) -> Response? {
         if case .string(let string) = message, let data = string.data(using: .utf8), let item = try? decoder.decode(Response.self, from: data) {
             return item
         } else if case .data(let data) = message, let item = try? decoder.decode(Response.self, from: data) {
             return item
         } else {
-            print("Bad message"); return nil
+            return nil
         }
     }
     
@@ -145,11 +134,54 @@ extension WebSocketService {
             }
         }
     }
+    
+    func startPinger(){
+        // start pinging server to maintain connection
+        task.sendPing { [weak self] (error) in
+            // on error stop the task and try to reconnect
+            if error != nil {
+                // set connection status to false
+                self?.isConnected = false
+                // stop task -- this will call delegate method
+                self?.reconnect()
+                
+            } else if let self = self {
+                print("Socket is still alive")
+                // set connection status
+                self.isConnected = true
+                // restart ping interval
+                DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: self.startPinger)
+            }
+        }
+    }
+}
+
+extension WebSocket : URLSessionWebSocketDelegate {
+    public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        print(#function)
+        // set connection status
+        isConnected = true
+        // keep connection alive
+        startPinger()
+        // start the listener
+        webSocketTask.startListener(didRecieveMessage: didRecieveMessage)
+        // send all existing observers to server
+        observations.forEach { id, observation in
+            if let observer = observation.observer {
+                // create new request
+                let request = Request(event: "listen", payload: observer.channelId)
+                // send the request
+                sendRequest(request) { _ in }
+            } else {
+                observations.removeValue(forKey: id)
+            }
+        }
+    }
 }
 
 // types
 
-extension WebSocketService {
+extension WebSocket {
     struct Observation {
         weak var observer : WebSocketObserver?
     }
@@ -162,24 +194,5 @@ extension WebSocketService {
     struct Response : Codable {
         let channelId : UUID
         let payload : String
-    }
-}
-
-// shared instance
-
-extension WebSocketService {
-    public static func standard(request: URLRequest) -> WebSocketService {
-        // create coordinator
-        let coordinator = WebSocketCoordinator()
-        // create new url session
-        let session = URLSession(configuration: .default, delegate: coordinator, delegateQueue: nil)
-        // create new websocket task
-        let task = session.webSocketTask(with: request)
-        // create service
-        let service = WebSocketService(task: task)
-        // set on connect
-        coordinator.onConnection(completion: service.onConnect)
-        // return the new service
-        return service
     }
 }

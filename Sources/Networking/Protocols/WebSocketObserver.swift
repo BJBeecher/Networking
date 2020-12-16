@@ -9,5 +9,5 @@ import Foundation
 
 public protocol WebSocketObserver : AnyObject {
     var channelId : UUID { get }
-    func webSocket(_ service: WebSocketService, didRecieveData data: Data)
+    func webSocket(_ service: WebSocket, didRecieveData data: Data)
 }
