@@ -1,5 +1,5 @@
 import XCTest
-@testable import Networking
+@testable import RestKit
 
 final class WebSocketTests: XCTestCase {
 

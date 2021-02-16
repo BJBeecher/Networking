@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum HTTPError : Error {
+public enum RestError : Error {
     case responseNotHTTP
     case dataAbsentFromResponse
     case clientError(_ message: String?)
@@ -20,7 +20,13 @@ public enum HTTPError : Error {
     case badURL
 }
 
-public class HTTPService {
+public class Server {
+    // scheme
+    private let scheme : String
+    // host
+    private let host : String
+    // port
+    private let port : Int?
     // url session
     private var session : URLSession
     // encoder
@@ -29,10 +35,16 @@ public class HTTPService {
     private let decoder : JSONDecoder
     // init
     public init(
+        scheme: String,
+        host: String,
+        port: Int? = nil,
         encoder: JSONEncoder = .init(),
         decoder: JSONDecoder = .init(),
         session : URLSession = .shared
     ) {
+        self.scheme = scheme
+        self.host = host
+        self.port = port
         self.session = session
         self.encoder = encoder
         self.decoder = decoder
@@ -41,10 +53,10 @@ public class HTTPService {
 
 // public networking methods
 
-extension HTTPService {
-    public func get<Value: Decodable>(url: URL?, headers: [HTTPHeader], completion: @escaping (Result<Value, HTTPError>) -> Void) {
+extension Server {
+    public func get<Value: Decodable>(path: String, queryItems: [URLQueryItem]? = nil, headers: [Header] = .init(), completion: @escaping (Result<Value, RestError>) -> Void) {
         // check url
-        guard let url = url else { return completion(.failure(.badURL)) }
+        guard let url = url(path: path, queryItems: queryItems) else { return completion(.failure(.badURL)) }
         // create request with url dependency
         var request = URLRequest(url: url)
         // set method
@@ -71,9 +83,9 @@ extension HTTPService {
         }.resume()
     }
     
-    public func post<Body: Encodable>(url: URL?, headers: [HTTPHeader], body: Body, completion: @escaping (HTTPError?) -> Void){
+    public func post<Body: Encodable>(path: String, headers: [Header] = .init(), body: Body, completion: @escaping (RestError?) -> Void){
         // check url
-        guard let url = url else { return completion(.badURL) }
+        guard let url = url(path: path) else { return completion(.badURL) }
         // create request with url
         var request = URLRequest(url: url)
         // set method
@@ -99,9 +111,9 @@ extension HTTPService {
         }.resume()
     }
     
-    public func put<Body: Encodable>(url: URL?, headers: [HTTPHeader], body: Body, completion: @escaping (HTTPError?) -> Void){
+    public func put<Body: Encodable>(path: String, headers: [Header] = .init(), body: Body, completion: @escaping (RestError?) -> Void){
         // check url
-        guard let url = url else { return completion(.badURL) }
+        guard let url = url(path: path) else { return completion(.badURL) }
         // create request with url
         var request = URLRequest(url: url)
         // set method
@@ -127,9 +139,9 @@ extension HTTPService {
         }.resume()
     }
     
-    public func delete(url: URL?, headers: [HTTPHeader], completion: @escaping (HTTPError?) -> Void){
+    public func delete(path: String, headers: [Header] = .init(), completion: @escaping (RestError?) -> Void){
         // check url
-        guard let url = url else { return completion(.badURL) }
+        guard let url = url(path: path) else { return completion(.badURL) }
         // create request with url
         var request = URLRequest(url: url)
         // set method
@@ -150,8 +162,18 @@ extension HTTPService {
 
 // helper API
 
-extension HTTPService {
-    func responseError(_ response: URLResponse?, data: Data?) -> HTTPError? {
+extension Server {
+    func url(path: String, queryItems: [URLQueryItem]? = nil) -> URL? {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.port = port
+        components.path = path
+        components.queryItems = queryItems
+        return components.url
+    }
+    
+    func responseError(_ response: URLResponse?, data: Data?) -> RestError? {
         // check type or httpurlresponse we should get this ever time since all request are http
         guard let httpResponse = response as? HTTPURLResponse else { return .responseNotHTTP }
         // switch on the code to return necessary error
