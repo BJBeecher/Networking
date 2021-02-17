@@ -1,7 +1,7 @@
 import XCTest
 
-import NetworkingTests
+import RestKitTests
 
 var tests = [XCTestCaseEntry]()
-tests += NetworkingTests.allTests()
+tests += RestKitTests.allTests()
 XCTMain(tests)
