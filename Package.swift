@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "RestKit",
-    platforms: [.iOS("13.0")],
+    platforms: [.iOS(.v13)],
     products: [
         .library(name: "RestKit", targets: ["RestKit"]),
     ],
