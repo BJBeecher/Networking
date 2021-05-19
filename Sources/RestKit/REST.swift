@@ -22,9 +22,20 @@ public class REST {
 
 public extension REST {
     func request(_ url: URL, method: HTTPMethod, headers: [String : String] = .init()) -> AnyPublisher<Data, Error> {
-        let builder = RequestBuilder(url: url, method: method, headers: headers)
+        let mappedHeaders = headers.map(HTTPHeader.init)
+        let request = HTTPRequest(url: url, method: method, headers: mappedHeaders)
+        let urlRequest = request.urlRequest
         
-        return loadData(builder.request)
+        return loadData(urlRequest)
+            .mapError(Failure.dataTaskError)
+            .map(\.data)
+            .eraseToAnyPublisher()
+    }
+    
+    func perform(_ request: HTTPRequest) -> AnyPublisher<Data, Error> {
+        let urlRequest = request.urlRequest
+        
+        return loadData(urlRequest)
             .mapError(Failure.dataTaskError)
             .map(\.data)
             .eraseToAnyPublisher()
