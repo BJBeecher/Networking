@@ -8,25 +8,31 @@
 import Foundation
 import Combine
 
-typealias LoadData = (URLRequest) -> AnyPublisher<Data, Error>
-
 public class REST {
+    typealias LoadData = (URLRequest) -> URLSession.DataTaskPublisher
     
     let loadData : LoadData
     
     init(loadData: @escaping LoadData){
         self.loadData = loadData
     }
-    
+}
+
+// public API
+
+public extension REST {
     func request(_ url: URL, method: HTTPMethod, headers: [String : String] = .init()) -> AnyPublisher<Data, Error> {
         let builder = RequestBuilder(url: url, method: method, headers: headers)
         
         return loadData(builder.request)
+            .mapError(Failure.dataTaskError)
+            .map(\.data)
+            .eraseToAnyPublisher()
     }
 }
 
 // static properties
 
-extension REST {
-    static let shared = REST(loadData: URLSession.shared.erasedDataTaskPublisher)
+public extension REST {
+    static let shared = REST(loadData: URLSession.shared.dataTaskPublisher)
 }

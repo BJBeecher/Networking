@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum HTTPMethod {
+public enum HTTPMethod {
     case get(_ queryItems: [URLQueryItem])
     case post(_ body: Data)
     case put(_ body: Data)
