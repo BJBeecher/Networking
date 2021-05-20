@@ -8,7 +8,7 @@
 import Foundation
 
 public enum HTTPMethod {
-    case get(_ queryItems: [URLQueryItem])
+    case get
     case post(_ body: Data)
     case put(_ body: Data)
     case delete
@@ -24,4 +24,3 @@ extension HTTPMethod {
         }
     }
 }
-

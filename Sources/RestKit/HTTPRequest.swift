@@ -36,11 +36,6 @@ extension HTTPRequest {
         case .post(let body), .put(let body):
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
-        case .get(let queryItems):
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            components?.queryItems = queryItems
-            guard let url = components?.url else { preconditionFailure("Bad URL") }
-            request = URLRequest(url: url)
         default:
             break
         }
